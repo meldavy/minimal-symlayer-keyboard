@@ -81,6 +81,13 @@
 			android:defaultValue="false"
 			app:widgetLayout="@layout/settings_widget_switch"
 			/>
+		<SwitchPreference
+			android:key="pref_enable_korean_input"
+			android:title="Enable Korean Input"
+			android:summary="Long press right-shift to toggle Korean Input"
+			android:defaultValue="false"
+			app:widgetLayout="@layout/settings_widget_switch"
+			/>
 	</PreferenceCategory>
 	<PreferenceCategory android:title="Timing">
 		<SeekBarPreference
