@@ -67,14 +67,28 @@ class HangulComposer {
 		} else if (cho != -1) {
 			cho = -1
 		}
+		// If we've removed the last remaining jamo, explicitly clear the composing text
+		if (!isComposing()) {
+			composing = ""
+			// Replace the composing region with empty to actually remove the visible jamo
+			ic?.setComposingText("", 1)
+			ic?.finishComposingText()
+			return true
+		}
 		updateComposing(ic)
-		if (!isComposing()) ic?.finishComposingText()
 		return true
 	}
 
 	private fun handleCho(j: Jamo, ic: InputConnection?) {
 		if (cho == -1) {
-			cho = j.choIndex
+			if (jung != -1) {
+				// Isolated vowel handling
+				// Commit the isolated vowel and start a new syllable with this consonant as initial (cho).
+				commitCurrent(ic)
+				cho = j.choIndex
+			} else {
+				cho = j.choIndex
+			}
 			return
 		}
 		if (jung == -1) {
@@ -106,10 +120,26 @@ class HangulComposer {
 	}
 
 	private fun handleJung(j: Jamo, ic: InputConnection?) {
+		// Allow standalone vowels: do NOT auto-insert ㅇ when starting with a vowel
 		if (cho == -1) {
-			// Start with implicit ㅇ as initial consonant
-			cho = CHO_ㅇ
+			if (jung == -1) {
+				// Start an isolated vowel
+				jung = j.jungIndex
+			} else {
+				// We are composing an isolated vowel already; try to combine
+				val combined = combineJung(jung, j.jungIndex)
+				if (combined != -1) {
+					jung = combined
+				} else {
+					// Commit previous isolated vowel and start a new isolated vowel
+					commitCurrent(ic)
+					jung = j.jungIndex
+				}
+			}
+			return
 		}
+
+		// There is a leading consonant (cho != -1)
 		if (jung == -1) {
 			jung = j.jungIndex
 		} else if (jong == -1) {
@@ -118,10 +148,11 @@ class HangulComposer {
 			if (combined != -1) {
 				jung = combined
 			} else {
-				// Commit previous syllable and start new
+				// Commit previous syllable and start a new isolated vowel
 				commitCurrent(ic)
-				cho = CHO_ㅇ
+				cho = -1
 				jung = j.jungIndex
+				jong = -1
 			}
 		} else {
 			// We had final consonant; move it to initial of next syllable if possible
@@ -170,14 +201,20 @@ class HangulComposer {
 	}
 
 	private fun composeSyllable(): String {
-		return if (jung == -1) {
-			// Isolated consonant: output compatibility Jamo for display
-			val ch = COMPAT_CHO[cho].toString()
-			ch
-		} else {
-			val base = 0xAC00
-			val c = base + ((cho * 21) + jung) * 28 + (jong + 1)
-			String(Character.toChars(c))
+		return when {
+			jung == -1 -> {
+				// Isolated consonant: output compatibility Jamo for display
+				COMPAT_CHO[cho].toString()
+			}
+			cho == -1 -> {
+				// Isolated vowel
+				COMPAT_JUNG[jung].toString()
+			}
+			else -> {
+				val base = 0xAC00
+				val c = base + ((cho * 21) + jung) * 28 + (jong + 1)
+				String(Character.toChars(c))
+			}
 		}
 	}
 
@@ -380,6 +417,11 @@ class HangulComposer {
 		// Mapping between CHO index and a display compatibility jamo char for isolated initial
 		private val COMPAT_CHO = charArrayOf(
 			'ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'
+		)
+
+		// Mapping between JUNG index and a display compatibility jamo char for isolated vowel
+		private val COMPAT_JUNG = charArrayOf(
+			'ㅏ','ㅐ','ㅑ','ㅒ','ㅓ','ㅔ','ㅕ','ㅖ','ㅗ','ㅘ','ㅙ','ㅚ','ㅛ','ㅜ','ㅝ','ㅞ','ㅟ','ㅠ','ㅡ','ㅢ','ㅣ'
 		)
 
 		// CHO to JONG for simple consonants
