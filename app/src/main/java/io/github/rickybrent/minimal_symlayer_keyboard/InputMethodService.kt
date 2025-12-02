@@ -1125,6 +1125,13 @@ class InputMethodService : AndroidInputMethodService() {
 		emojiMeta.longPressKeyCode = preferenceToKeyCode(preferences.getString("pref_emojimeta_long_press", "0"))
 		emojiMeta.modKeyCode = preferenceToKeyCode(preferences.getString("pref_emojimeta_hold", "meta"))
 
+
+		// MP01 right-hand friendly Sym layer toggle (opt-in by default)
+		val rightHandSym = preferences.getBoolean("pref_mp01_right_hand_sym", false)
+		SymKeyMappings.enableRightHandMp01(rightHandSym)
+		// Refresh picker symbols if currently shown to reflect new labels/actions
+		pickerManager?.refreshSymbols()
+
 		// TODO: Separate modifier and special-key logic and add better handling for sym and right shift.
 	}
 
@@ -1191,6 +1198,19 @@ class InputMethodService : AndroidInputMethodService() {
 		emojiMeta.reset()
 		caps.reset()
 		cyrillicLayer.reset()
+		updateStatusIconIfNeeded(true)
+	}
+
+	/**
+	 * Reset only the Emoji Meta modifier state and refresh the status icon.
+	 *
+	 * This is used by the picker when it gets dismissed via the emoji button
+	 * (or close/back). Without this, if the picker was opened using an
+	 * emoji meta shortcut (e.g., emoji + space), the modifier could remain
+	 * latched, keeping the keyboard in the shortcut mode.
+	 */
+	fun resetEmojiMeta() {
+		emojiMeta.reset()
 		updateStatusIconIfNeeded(true)
 	}
 }
